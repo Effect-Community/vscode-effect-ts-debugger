@@ -186,6 +186,15 @@ async function injectDebuggerScript(session: vscode.DebugSession) {
   try {
     // then we inject the debugger script
     const debuggerScript = `(function(){
+    /**
+     * 
+     * This source file is generated and required by the Effect Step Debugger.
+     * Unfortunately in order to make the extension work, the JS execution will
+     * be paused on this file. So this file appearing or flashing while debugging
+     * is intended and there is'nt any known way to avoid it right now.
+     * Have any idea to avoid it? Please open an issue in our git repo :D
+     *
+     **/
     const F = global.require("@effect-ts/system/Fiber");
     const oldTrace = F.FiberContext.prototype.addTrace;
 

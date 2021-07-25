@@ -59,7 +59,8 @@ Last step, you'll need to enable execution trace capture by importing `import "@
 
 ## Known Issues
 
-Calling out known issues can help limit users opening duplicate issues against your extension.
+While using the Effect Step Debug, another source window may flash out in the background. 
+Unfortunately this is intended as that is the point where the JS execution is paused.
 
 ## Release Notes
 
