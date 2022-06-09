@@ -36,27 +36,18 @@ async function fileUriExists(jsUri: vscode.Uri) {
  */
 function parseFileRowColumnFromTrace(
   traceString: string
-): readonly [string, number, number] {
-  const beforeColumn = traceString.lastIndexOf(":");
-  const beforeRow = traceString.lastIndexOf(":", beforeColumn - 1);
-  const column = parseInt(traceString.substr(beforeColumn + 1), 10);
-  const row =
-    parseInt(traceString.substring(beforeRow + 1, beforeColumn), 10) - 1;
-  const file = traceString.substring(0, beforeRow);
+): null | readonly [string, number, number] {
+  const match = /^(\(.[^\)]+\)\s*)*(.+)\:(\d+)\:(\d+)$/ig.exec(traceString)
+  if(match === null) return match
+  const row = parseInt(match[3], 10) - 1;
+  const column = parseInt(match[4], 10);
+  const file = ''+match[2];
   return [file, row, column];
 }
 
-type TraceElement = NoLocation | SourceLocation;
-interface NoLocation {
-  readonly _tag: "NoLocation";
-}
-interface SourceLocation {
-  readonly _tag: "SourceLocation";
-  readonly location: string;
-}
 interface EffectTsDebugInfo {
   fiberId: string;
-  executionTraces: TraceElement[];
+  trace: string | null;
 }
 
 /**
@@ -74,25 +65,7 @@ async function getEffectTsDebugInfo(
       });
 
       // then we get the current fiber being evaluated
-      const unsafeCurrentFiberDebugInfoExpression = `(function(){
-    const F = global.require("@effect-ts/system/Fiber");
-    const optionFiber = F.unsafeCurrentFiber();
-    let data = null;
-    if(optionFiber._tag === "Some"){
-      const fiberContext = optionFiber.value
-      const hasTraces = fiberContext.traceStatusEnabled
-      const executionTraces = hasTraces && fiberContext.executionTraces 
-        ? Array.from(fiberContext.executionTraces.list) 
-        : []
-      data = {
-        fiberId: fiberContext.fiberId.seqNumber,
-        executionTraces: executionTraces
-      }
-    }
-
-    return JSON.stringify(data)
-  })()
-  `;
+      const unsafeCurrentFiberDebugInfoExpression = `JSON.stringify(arguments[0])`;
 
       const resUnsafeFiber = await session.customRequest("evaluate", {
         expression: unsafeCurrentFiberDebugInfoExpression,
@@ -114,23 +87,18 @@ async function getEffectTsDebugInfo(
  */
 async function getLocationFromTraceElement(
   session: vscode.DebugSession,
-  trace: TraceElement
+  trace: string | null
 ): Promise<vscode.Location | null> {
   try {
-    if (trace._tag === "NoLocation") {
-      return null;
-    }
+    if (!trace) return null
+    const parsedTrace = parseFileRowColumnFromTrace(trace)
+    if(!parsedTrace) return null
+    const [file, row, column] = parsedTrace;
+    //const absolutePath = session.workspaceFolder?.uri.toString() + "/" + file;
 
-    const [file, row, column] = parseFileRowColumnFromTrace(trace.location);
-    const absolutePath = session.workspaceFolder?.uri.toString() + "/" + file;
-
-    const fileUri = vscode.Uri.parse(absolutePath);
+    const fileUri = vscode.Uri.file(file)
     const position = new vscode.Position(row, column);
     const location = new vscode.Location(fileUri, position);
-
-    if (!(await fileUriExists(fileUri))) {
-      return null;
-    }
 
     return location;
   } catch (e) {
@@ -173,80 +141,6 @@ const liveLogDecorationType = vscode.window.createTextEditorDecorationType({
   },
   rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed,
 });
-
-interface EffectTsDebugTrace {
-  fiberId: string;
-  file: string;
-  absolutePath: string;
-  row: number;
-  column: number;
-}
-
-async function injectDebuggerScript(session: vscode.DebugSession) {
-  try {
-    // then we inject the debugger script
-    const debuggerScript = `(function(){
-    /**
-     * 
-     * This source file is generated and required by the Effect Step Debugger.
-     * Unfortunately in order to make the extension work, the JS execution will
-     * be paused on this file. So this file appearing or flashing while debugging
-     * is intended and there is'nt any known way to avoid it right now.
-     * Have any idea to avoid it? Please open an issue in our git repo :D
-     *
-     **/
-    const F = global.require("@effect-ts/system/Fiber");
-    const oldTrace = F.FiberContext.prototype.addTrace;
-
-    F.FiberContext.prototype.addTrace = function(trace){
-      const value = oldTrace.call(this, trace)
-      if(global.effectDebuggerStep && trace){
-        debugger;
-      }
-      return value
-    }
-
-    global.effectDebuggerStep = ${JSON.stringify(effectDebuggerStep)}
-  })()
-  `;
-
-    await session.customRequest("evaluate", {
-      expression: debuggerScript,
-    });
-
-    return true;
-  } catch (e) {
-    // debugger has shut down before resolving
-    if (e && e.name === "Canceled") {
-      return false;
-    }
-    // error
-    handleError(e);
-  }
-}
-
-async function sendDebuggerSettings(session: vscode.DebugSession) {
-  try {
-    // then we inject the debugger script
-    const debuggerScript = `(function(){
-    global.effectDebuggerStep = ${JSON.stringify(effectDebuggerStep)};
-  })()
-  `;
-
-    await session.customRequest("evaluate", {
-      expression: debuggerScript,
-    });
-
-    return true;
-  } catch (e) {
-    // debugger has shut down before resolving
-    if (e && e.name === "Canceled") {
-      return false;
-    }
-    // error
-    handleError(e);
-  }
-}
 
 let lastInlineInfoEditor: vscode.TextEditor | undefined = undefined;
 /**
@@ -299,12 +193,15 @@ async function jumpToEffectTrace(
     const effectInfo = await getEffectTsDebugInfo(session);
     if (effectInfo) {
       const sourceLocation =
-        effectInfo.executionTraces[effectInfo.executionTraces.length - 1];
+        effectInfo.trace;
       const location = await getLocationFromTraceElement(
         session,
         sourceLocation
       );
       if (location) {
+        if (!(await fileUriExists(location.uri))) {
+          return await session.customRequest("continue");
+        }
         const editor = await moveEditorPointerAtLocation(location);
         if (editor) {
           await setInlineInfo(editor, location, effectInfo);
@@ -335,8 +232,6 @@ function updateStatusBarItem() {
 export function activate(context: vscode.ExtensionContext) {
   let disposable = vscode.debug.registerDebugAdapterTrackerFactory("*", {
     createDebugAdapterTracker(session: vscode.DebugSession) {
-      injectDebuggerScript(session);
-
       return {
         onExit: () => {
           clearInlineInfo();
@@ -364,10 +259,6 @@ export function activate(context: vscode.ExtensionContext) {
     () => {
       effectDebuggerStep = !effectDebuggerStep;
       updateStatusBarItem();
-      const debugSession = vscode.debug.activeDebugSession;
-      if (debugSession) {
-        sendDebuggerSettings(debugSession);
-      }
     }
   );
   context.subscriptions.push(disposable);
