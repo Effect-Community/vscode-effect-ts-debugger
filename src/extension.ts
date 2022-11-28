@@ -26,10 +26,6 @@ async function clearInlineInfo() {
     lastInlineInfoEditor.setDecorations(liveLogDecorationType, []);
   }
   lastInlineInfoEditor = undefined;
-  vscode.window.registerTreeDataProvider("vscode-effect-ts-debugger.fibers", {
-    getChildren: () => [],
-    getTreeItem: (_: never) => _,
-  });
 }
 
 async function getEffectTsDebugInfo(session: vscode.DebugSession): Promise<void> {
@@ -73,42 +69,6 @@ async function getEffectTsDebugInfo(session: vscode.DebugSession): Promise<void>
     ]);
     lastInlineInfoEditor = editor;
   }
-
-  const fibersVariable = await session.customRequest("evaluate", {
-    expression: `(() => {
-  if (globalThis["@effect/io/FiberScope/Global"]) {
-    const render = (fiber) => {
-      const id = fiber.id();
-      return ({
-        id: id.id,
-        start: id.startTimeMillis,
-        child: fiber._children ? Array.from(fiber._children.values()).map((fiber) => render(fiber)) : []
-      })
-    }
-    return JSON.stringify({ fibers: Array.from(globalThis["@effect/io/FiberScope/Global"].roots.values()).map((fiber) => render(fiber)) })
-  }
-  return JSON.stringify({ fibers: [] })
-})()`,
-  });
-
-  const { fibers } = eval(`JSON.parse(${fibersVariable.result})`);
-
-  interface Fiber {
-    id: string;
-    start: number;
-    child: ReadonlyArray<Fiber>;
-  }
-
-  vscode.window.registerTreeDataProvider("vscode-effect-ts-debugger.fibers", {
-    getChildren: (parent?: Fiber) => (parent ? parent.child : fibers),
-    getTreeItem: ({ id, start, child }) =>
-      new vscode.TreeItem(
-        `#${id} (${new Date(start).toISOString()})`,
-        child.length === 0
-          ? vscode.TreeItemCollapsibleState.None
-          : vscode.TreeItemCollapsibleState.Collapsed
-      ),
-  });
 }
 
 async function augmentDebugInfo(session: vscode.DebugSession) {
@@ -128,20 +88,91 @@ function updateStatusBarItem() {
   }
 }
 
+export interface FiberTreeItem {
+  id: string;
+  start: number;
+  child: Array<FiberTreeItem>;
+}
+
+async function getEffectTsFibersInfo(session: vscode.DebugSession): Promise<FiberTreeItem[]> {
+  const fibersVariable = await session.customRequest("evaluate", {
+    expression: `(() => {
+  if (globalThis["@effect/io/FiberScope/Global"]) {
+    const render = (fiber) => {
+      const id = fiber.id();
+      return ({
+        id: id.id,
+        start: id.startTimeMillis,
+        child: fiber._children ? Array.from(fiber._children.values()).map((fiber) => render(fiber)) : []
+      })
+    }
+    return JSON.stringify({ fibers: Array.from(globalThis["@effect/io/FiberScope/Global"].roots.values()).map((fiber) => render(fiber)) })
+  }
+  return JSON.stringify({ fibers: [] })
+})()`,
+  });
+
+  const { fibers } = eval(`JSON.parse(${fibersVariable.result})`);
+  return fibers;
+}
+
+export class FibersTreeDataProvider implements vscode.TreeDataProvider<FiberTreeItem> {
+  private _onDidChangeTreeData: vscode.EventEmitter<FiberTreeItem | undefined | void> =
+    new vscode.EventEmitter<FiberTreeItem | undefined | void>();
+  readonly onDidChangeTreeData: vscode.Event<FiberTreeItem | undefined | void> =
+    this._onDidChangeTreeData.event;
+  private data: FiberTreeItem[] = [];
+
+  constructor() {}
+
+  async refresh(session: vscode.DebugSession | undefined): Promise<void> {
+    if (session) {
+      this.data = await getEffectTsFibersInfo(session);
+    } else {
+      this.data = [];
+    }
+    this._onDidChangeTreeData.fire();
+  }
+
+  getTreeItem({ child, id, start }: FiberTreeItem): vscode.TreeItem {
+    return new vscode.TreeItem(
+      `#${id} (${new Date(start).toISOString()})`,
+      child.length === 0
+        ? vscode.TreeItemCollapsibleState.None
+        : vscode.TreeItemCollapsibleState.Collapsed
+    );
+  }
+
+  getChildren(fiberId?: FiberTreeItem): Thenable<FiberTreeItem[]> {
+    return Promise.resolve(fiberId ? fiberId.child : this.data);
+  }
+}
+
 export function activate(context: vscode.ExtensionContext) {
+  const effectFibersProvider = new FibersTreeDataProvider();
+
+  context.subscriptions.push(
+    vscode.window.createTreeView("vscode-effect-ts-debugger.fibers", {
+      treeDataProvider: effectFibersProvider,
+    })
+  );
+
   context.subscriptions.push(
     vscode.debug.registerDebugAdapterTrackerFactory("*", {
       createDebugAdapterTracker(session: vscode.DebugSession) {
         return {
           onExit: () => {
             clearInlineInfo();
+            effectFibersProvider.refresh(undefined);
           },
           onWillStopSession: () => {
             clearInlineInfo();
+            effectFibersProvider.refresh(undefined);
           },
           onDidSendMessage: async (m) => {
             if (effectDebuggerMode && isVSCodeDebuggerStoppedEvent(m)) {
               await augmentDebugInfo(session);
+              effectFibersProvider.refresh(session);
             }
           },
         };
