@@ -17,6 +17,14 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "views": {
+      "debug": [
+        {
+          "id": "vscode-effect-ts-debugger.fibers",
+          "name": "Effect Fibers"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "vscode-effect-ts-debugger.toggleDebuggerStep",

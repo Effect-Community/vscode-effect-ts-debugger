@@ -1,16 +1,26 @@
 import * as E from "@effect/io/Effect";
+import * as F from "@effect/io/Fiber";
 import { pipe } from "@fp-ts/data/Function";
 import { seconds } from "@fp-ts/data/Duration";
 
 pipe(
-  E.sync(() => Array.from({ length: 5 }, (_, n) => n)),
-  E.flatMap(E.forEachPar((n) => E.delay(seconds(2))(E.succeed(n + 1)))),
-  E.timed,
-  E.flatMap(([{ millis }]) => E.log(`timed: ${millis} ms`)),
-  E.tap(() =>
-    E.async<never, never, void>((cb) => {
-      setTimeout(() => cb(E.unit()), 100);
-    })
+  E.sync(() => 0),
+  E.flatMap(() =>
+    E.fork(
+      pipe(
+        E.sync(() => 1),
+        E.zipRight(E.sleep(seconds(3)))
+      )
+    )
+  ),
+  E.flatMap((_) => F.join(_)),
+  E.flatMap(() =>
+    E.tuplePar(
+      E.delay(seconds(2))(E.sync(() => 0)),
+      E.delay(seconds(2))(E.sync(() => 0)),
+      E.delay(seconds(2))(E.sync(() => 0)),
+      E.delay(seconds(2))(E.sync(() => 0))
+    )
   ),
   E.withParallelism(2),
   E.unsafeFork

@@ -17,14 +17,14 @@
     "@effect/printer" "^0.0.4"
     "@tsplus/stdlib" "^0.2.8"
 
-"@effect/io@^0.0.22":
-  version "0.0.22"
-  resolved "https://registry.yarnpkg.com/@effect/io/-/io-0.0.22.tgz#4e80fde6453e1d7037462f6439b548a2981525bd"
-  integrity sha512-29l+AGCgUVvQak4z8js5cX3LjB6A0nAHYaQODhJWfFKu2LNV0oQh4BDGYZYI1n0MdeN/L5QkRCJLeitrlW0bOQ==
+"@effect/io@^0.0.26":
+  version "0.0.26"
+  resolved "https://registry.yarnpkg.com/@effect/io/-/io-0.0.26.tgz#5cae4951ff496d82023e5dacaf7290a9d7ce7751"
+  integrity sha512-477jUAYnvVZLE1FYlDfeHTlEkroKXPRie7fR8A9tTYc/925+/bwbFO10lrZjj8wYkZ+hwbUNf8qXNf95QsO+Vg==
   dependencies:
-    "@effect/printer" "^0.1.4"
+    "@effect/printer" "^0.1.5"
     "@fp-ts/core" "^0.0.8"
-    "@fp-ts/data" "^0.0.16"
+    "@fp-ts/data" "^0.0.17"
 
 "@effect/language-service@^0.0.5":
   version "0.0.5"
@@ -44,13 +44,21 @@
   dependencies:
     "@tsplus/stdlib" "^0.2.6"
 
-"@effect/printer@^0.1.3", "@effect/printer@^0.1.4":
+"@effect/printer@^0.1.3":
   version "0.1.4"
   resolved "https://registry.yarnpkg.com/@effect/printer/-/printer-0.1.4.tgz#c03f025ef6625646b9333e2feecca0bf6eef833d"
   integrity sha512-xilOF8IbVG91de5huTvzO7PYZ2naF1LLux98Ci1ygwlVJUcyR52ZS28S+wODy3lbfxN+Q/DOxZODL3vhdjh0Cw==
   dependencies:
     "@fp-ts/core" "^0.0.8"
     "@fp-ts/data" "^0.0.16"
+
+"@effect/printer@^0.1.5":
+  version "0.1.5"
+  resolved "https://registry.yarnpkg.com/@effect/printer/-/printer-0.1.5.tgz#ea75a50ea1c5ea09bea5aff932adf009d4ede420"
+  integrity sha512-Mqg2kPxaXTlGdXa7TkMpIgudwXofH6gjpwaPuBZqSX8H4qcvGYMohJbnEJlsYAmkQ0k1o2VGgGq8wRpnEc0tMg==
+  dependencies:
+    "@fp-ts/core" "^0.0.8"
+    "@fp-ts/data" "^0.0.17"
 
 "@fp-ts/core@^0.0.8":
   version "0.0.8"
@@ -68,6 +76,13 @@
   version "0.0.16"
   resolved "https://registry.yarnpkg.com/@fp-ts/data/-/data-0.0.16.tgz#76a426f959e8a22acd02e8b7c5303879015f1119"
   integrity sha512-pfWpZaFHkWMQZfxoUYawahWKsuDANTgu8g4VSyE3Gv0ChprM+0f455e2i0Jy84Wyd8tumL9Fj4ff8oaCNC5d/g==
+  dependencies:
+    "@fp-ts/core" "^0.0.8"
+
+"@fp-ts/data@^0.0.17":
+  version "0.0.17"
+  resolved "https://registry.yarnpkg.com/@fp-ts/data/-/data-0.0.17.tgz#92df363511668d3d234836948a9b4104f37e9be9"
+  integrity sha512-1Y/3ZqJYggbEeOEHOAiWQ0hdHSuoCT/77yUeharTTlipfGHYKS1vMQ05tI++jYJ5YcH5UIuX4AfZmRFX+SxrMw==
   dependencies:
     "@fp-ts/core" "^0.0.8"
 
