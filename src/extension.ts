@@ -1,5 +1,91 @@
 import * as vscode from "vscode";
 
+interface FiberTreeItem {
+  id: string;
+  startTimeMillis: string;
+  state: string;
+}
+
+async function getEffectTsFibersInfo(session: vscode.DebugSession): Promise<FiberTreeItem[]> {
+  const thread = (await session.customRequest("threads", {})).threads[0];
+  const stack = await session.customRequest("stackTrace", { threadId: thread.id });
+
+  for (const frame of stack.stackFrames) {
+    const { variablesReference: globalScopeRef } = await session.customRequest("evaluate", {
+      frameId: frame.id,
+      expression: 'globalThis["@effect/io/FiberScope/Global"]',
+    });
+
+    if (globalScopeRef) {
+      const { variablesReference: rootFibersRef } = await session.customRequest("evaluate", {
+        frameId: frame.id,
+        expression: `Array.from(globalThis["@effect/io/FiberScope/Global"].roots.entries()).map(function(entry){
+          return ({id: entry[0]._fiberId.id, startTimeMillis: entry[0]._fiberId.startTimeMillis })
+        })`,
+      });
+
+      const { variables: currentFiberFields } = await session.customRequest("variables", {
+        variablesReference: rootFibersRef,
+        filter: "indexed",
+      });
+      let result: FiberTreeItem[] = [];
+      for (const field of currentFiberFields) {
+        const { variables: fiberIdFields } = await session.customRequest("variables", {
+          variablesReference: field.variablesReference,
+        });
+
+        if (fiberIdFields) {
+          const idField = fiberIdFields.find((_: any) => _.name === "id");
+          if (idField) {
+            const fiberId = {
+              id: idField.value,
+              startTimeMillis: fiberIdFields.find((_: any) => _.name === "startTimeMillis").value,
+              state: "unknown",
+            };
+            result.push(fiberId);
+          }
+        }
+      }
+      return result;
+    }
+  }
+  return [];
+}
+
+export class FibersTreeDataProvider implements vscode.TreeDataProvider<FiberTreeItem> {
+  private _onDidChangeTreeData: vscode.EventEmitter<FiberTreeItem | undefined | void> =
+    new vscode.EventEmitter<FiberTreeItem | undefined | void>();
+  readonly onDidChangeTreeData: vscode.Event<FiberTreeItem | undefined | void> =
+    this._onDidChangeTreeData.event;
+  private data: FiberTreeItem[] = [];
+
+  constructor() {}
+
+  async refresh(session: vscode.DebugSession | undefined): Promise<void> {
+    if (session) {
+      this.data = await getEffectTsFibersInfo(session);
+    } else {
+      this.data = [];
+    }
+    this._onDidChangeTreeData.fire();
+  }
+
+  getTreeItem(fiberId: FiberTreeItem): vscode.TreeItem {
+    const item = new vscode.TreeItem(
+      `Fiber #${fiberId.id} (started at: ${new Date(
+        JSON.parse(fiberId.startTimeMillis)
+      ).toISOString()})`,
+      vscode.TreeItemCollapsibleState.None
+    );
+    item.description = fiberId.state;
+    return item;
+  }
+
+  getChildren(fiberId?: FiberTreeItem): Thenable<FiberTreeItem[]> {
+    return Promise.resolve(fiberId ? [] : this.data);
+  }
+}
+
 let effectDebuggerMode = true;
 
 interface VSCodeDebuggerStoppedEvent {
@@ -84,8 +170,8 @@ async function getEffectTsDebugInfo(session: vscode.DebugSession): Promise<void>
           typeof e === "object" &&
           e &&
           "message" in e &&
-          typeof e["message"] === "string" &&
-          e["message"].includes("async stack frame")
+          typeof (e as any)["message"] === "string" &&
+          (e as any)["message"].includes("async stack frame")
         ) {
           return;
         } else {
@@ -114,18 +200,27 @@ function updateStatusBarItem() {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+  const effectFibersProvider = new FibersTreeDataProvider();
+  const view = vscode.window.createTreeView("effectFibers", {
+    treeDataProvider: effectFibersProvider,
+  });
+  context.subscriptions.push(view);
+
   let disposable = vscode.debug.registerDebugAdapterTrackerFactory("*", {
     createDebugAdapterTracker(session: vscode.DebugSession) {
       return {
         onExit: () => {
           clearInlineInfo();
+          effectFibersProvider.refresh(undefined);
         },
         onWillStopSession: () => {
           clearInlineInfo();
+          effectFibersProvider.refresh(undefined);
         },
         onDidSendMessage: async (m) => {
           if (effectDebuggerMode && isVSCodeDebuggerStoppedEvent(m)) {
             await augmentDebugInfo(session);
+            effectFibersProvider.refresh(session);
           }
         },
       };
