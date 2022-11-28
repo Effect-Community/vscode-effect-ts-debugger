@@ -28,7 +28,12 @@ async function clearInlineInfo() {
   lastInlineInfoEditor = undefined;
 }
 
-async function getEffectTsDebugInfo(session: vscode.DebugSession): Promise<void> {
+export interface CurrentFiber {
+  id: any;
+  start: any;
+}
+
+async function getEffectTsDebugInfo(session: vscode.DebugSession) {
   const thread = (await session.customRequest("threads", {})).threads[0];
   const stack = await session.customRequest("stackTrace", { threadId: thread.id });
 
@@ -89,31 +94,43 @@ function updateStatusBarItem() {
 }
 
 export interface FiberTreeItem {
-  id: string;
+  id: number;
   start: number;
   child: Array<FiberTreeItem>;
 }
 
-async function getEffectTsFibersInfo(session: vscode.DebugSession): Promise<FiberTreeItem[]> {
+export interface CurrentState {
+  fibers: FiberTreeItem[];
+  current: CurrentFiber | undefined;
+}
+
+async function getEffectTsFibersInfo(session: vscode.DebugSession): Promise<CurrentState> {
   const fibersVariable = await session.customRequest("evaluate", {
     expression: `(() => {
-  if (globalThis["@effect/io/FiberScope/Global"]) {
-    const render = (fiber) => {
-      const id = fiber.id();
-      return ({
-        id: id.id,
-        start: id.startTimeMillis,
-        child: fiber._children ? Array.from(fiber._children.values()).map((fiber) => render(fiber)) : []
-      })
-    }
-    return JSON.stringify({ fibers: Array.from(globalThis["@effect/io/FiberScope/Global"].roots.values()).map((fiber) => render(fiber)) })
-  }
-  return JSON.stringify({ fibers: [] })
+      let current = undefined;
+      if (globalThis["@effect/io/Fiber/Current"]) {
+        const id = globalThis["@effect/io/Fiber/Current"].id();
+        current = {
+          id: id.id,
+          start: id.startTimeMillis
+        }
+      }
+      if (globalThis["@effect/io/FiberScope/Global"]) {
+        const render = (fiber) => {
+          const id = fiber.id();
+          return ({
+            id: id.id,
+            start: id.startTimeMillis,
+            child: fiber._children ? Array.from(fiber._children.values()).map((fiber) => render(fiber)) : []
+          })
+        }
+        return JSON.stringify({ fibers: Array.from(globalThis["@effect/io/FiberScope/Global"].roots.values()).map((fiber) => render(fiber)), current: current })
+      }
+      return JSON.stringify({ fibers: [], current: current })
 })()`,
   });
 
-  const { fibers } = eval(`JSON.parse(${fibersVariable.result})`);
-  return fibers;
+  return eval(`JSON.parse(${fibersVariable.result})`);
 }
 
 export class FibersTreeDataProvider implements vscode.TreeDataProvider<FiberTreeItem> {
@@ -121,7 +138,7 @@ export class FibersTreeDataProvider implements vscode.TreeDataProvider<FiberTree
     new vscode.EventEmitter<FiberTreeItem | undefined | void>();
   readonly onDidChangeTreeData: vscode.Event<FiberTreeItem | undefined | void> =
     this._onDidChangeTreeData.event;
-  private data: FiberTreeItem[] = [];
+  private data?: CurrentState;
 
   constructor() {}
 
@@ -129,22 +146,24 @@ export class FibersTreeDataProvider implements vscode.TreeDataProvider<FiberTree
     if (session) {
       this.data = await getEffectTsFibersInfo(session);
     } else {
-      this.data = [];
+      this.data = undefined;
     }
     this._onDidChangeTreeData.fire();
   }
 
   getTreeItem({ child, id, start }: FiberTreeItem): vscode.TreeItem {
+    const current =
+      this.data?.current?.id === id && this.data?.current.start === start ? ` (Current)` : "";
     return new vscode.TreeItem(
-      `#${id} (${new Date(start).toISOString()})`,
+      `#${id} (${new Date(start).toISOString()})${current}`,
       child.length === 0
         ? vscode.TreeItemCollapsibleState.None
-        : vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.Expanded
     );
   }
 
   getChildren(fiberId?: FiberTreeItem): Thenable<FiberTreeItem[]> {
-    return Promise.resolve(fiberId ? fiberId.child : this.data);
+    return Promise.resolve(fiberId ? fiberId.child : this.data?.fibers ?? []);
   }
 }
 
