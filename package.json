@@ -1,8 +1,18 @@
 {
-  "name": "vscode-effect-ts-debugger",
-  "displayName": "vscode-effect-ts-debugger",
+  "name": "effect-debugger",
+  "displayName": "Effect Debugger",
   "description": "Step by step effect",
   "version": "0.0.1",
+  "license": "MIT",
+  "publisher": "effect",
+  "author": {
+    "email": "ma@matechs.com",
+    "name": "Michael Arnaldi"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Effect-TS/vscode-extension.git"
+  },
   "engines": {
     "vscode": "^1.58.0"
   },
@@ -62,7 +72,8 @@
     "watch": "tsc -watch -p ./",
     "pretest": "yarn run compile && yarn run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "bundle": "rollup -c"
   },
   "devDependencies": {
     "@types/glob": "^7.1.3",

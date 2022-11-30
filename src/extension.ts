@@ -130,7 +130,7 @@ async function getEffectTsFibersInfo(session: vscode.DebugSession): Promise<Curr
 })()`,
   });
 
-  return eval(`JSON.parse(${fibersVariable.result})`);
+  return new Function(`return JSON.parse(${fibersVariable.result});`)();
 }
 
 export class FibersTreeDataProvider implements vscode.TreeDataProvider<FiberTreeItem> {
