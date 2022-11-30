@@ -12,3 +12,4 @@ tsbuildinfo/
 del-tags.sh
 incubation/
 .DS_Store
+dist/

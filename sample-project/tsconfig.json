@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": [
+      "DOM"
+    ],
+    "noEmit": true,
+    "module": "CommonJS",
+    "transformers": [
+      {
+        "name": "@effect/language-service/transformer",
+        "debug": {
+          "include": [
+            "./index.ts"
+          ]
+        }
+      }
+    ],
+    "tsPlusEnabled": false
+  },
+  "include": [
+    "./**/*.ts"
+  ]
+}

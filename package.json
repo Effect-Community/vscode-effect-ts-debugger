@@ -1,72 +1,96 @@
 {
-  "name": "vscode-effect-ts-debugger",
-	"displayName": "vscode-effect-ts-debugger",
-	"description": "Step by step effect",
-	"version": "0.0.1",
-	"engines": {
-		"vscode": "^1.58.0"
-	},
-	"categories": [
-		"Other"
-	],
-	"activationEvents": [
-		"onStartupFinished",
-        "onDebug",
-		"onDebugDynamicConfigurations:node",
-		"onDebugAdapterProtocolTracker:node"
-	],
-	"main": "./out/extension.js",
-	"contributes": {
-		"commands": [
-			{
-				"command": "vscode-effect-ts-debugger.toggleDebuggerStep",
-				"title": "Effect-TS: Toggle Debugger Step"
-			},
-			{
-				"command": "vscode-effect-ts-debugger.jumpToEffectTrace",
-				"title": "Effect-TS: Toggle Debugger Step"
-			}
-		],
-		"colors": [
-		  {
-			"id": "effectTsDebugger.inlineInfoBackgroundColor",
-			"description": "Defines the background color for log point events at the end of a line.",
-			"defaults": {
-			  "light": "#00000000",
-			  "dark": "#00000000",
-			  "highContrast": "#00000000"
-			}
-		  },
-		  {
-			"id": "effectTsDebugger.inlineInfoForegroundColor",
-			"description": "Defines the foreground color for log point events at the end of a line.",
-			"defaults": {
-			  "dark": "#999999bd",
-			  "light": "#999999bd",
-			  "highContrast": "#99999999"
-			}
-		  }
-		]
-	},
-	"scripts": {
-		"vscode:prepublish": "yarn run compile",
-		"compile": "tsc -p ./",
-		"watch": "tsc -watch -p ./",
-		"pretest": "yarn run compile && yarn run lint",
-		"lint": "eslint src --ext ts",
-		"test": "node ./out/test/runTest.js"
-	},
-	"devDependencies": {
-		"@types/vscode": "^1.58.0",
-		"@types/glob": "^7.1.3",
-		"@types/mocha": "^8.2.2",
-		"@types/node": "14.x",
-		"eslint": "^7.27.0",
-		"@typescript-eslint/eslint-plugin": "^4.26.0",
-		"@typescript-eslint/parser": "^4.26.0",
-		"glob": "^7.1.7",
-		"mocha": "^8.4.0",
-		"typescript": "^4.3.2",
-		"vscode-test": "^1.5.2"
-	}
+  "name": "effect-debugger",
+  "displayName": "Effect Debugger",
+  "description": "Step by step effect",
+  "version": "0.0.1",
+  "license": "MIT",
+  "publisher": "effect",
+  "author": {
+    "email": "ma@matechs.com",
+    "name": "Michael Arnaldi"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Effect-TS/vscode-extension.git"
+  },
+  "engines": {
+    "vscode": "^1.58.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onDebug",
+    "onDebugDynamicConfigurations:node",
+    "onDebugAdapterProtocolTracker:node"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "views": {
+      "debug": [
+        {
+          "id": "vscode-effect-ts-debugger.fibers",
+          "name": "Effect Fibers"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "vscode-effect-ts-debugger.toggleDebuggerStep",
+        "title": "Effect-TS: Toggle Debugger Step"
+      },
+      {
+        "command": "vscode-effect-ts-debugger.jumpToEffectTrace",
+        "title": "Effect-TS: Toggle Debugger Step"
+      }
+    ],
+    "colors": [
+      {
+        "id": "effectTsDebugger.inlineInfoBackgroundColor",
+        "description": "Defines the background color for log point events at the end of a line.",
+        "defaults": {
+          "light": "#00000000",
+          "dark": "#00000000",
+          "highContrast": "#00000000"
+        }
+      },
+      {
+        "id": "effectTsDebugger.inlineInfoForegroundColor",
+        "description": "Defines the foreground color for log point events at the end of a line.",
+        "defaults": {
+          "dark": "#999999bd",
+          "light": "#999999bd",
+          "highContrast": "#99999999"
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "yarn run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "yarn run compile && yarn run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "bundle": "rollup -c"
+  },
+  "devDependencies": {
+    "@types/glob": "^7.1.3",
+    "@types/mocha": "^8.2.2",
+    "@types/node": "14.x",
+    "@types/vscode": "^1.58.0",
+    "@typescript-eslint/eslint-plugin": "^4.26.0",
+    "@typescript-eslint/parser": "^4.26.0",
+    "eslint": "^7.27.0",
+    "glob": "^7.1.7",
+    "mocha": "^8.4.0",
+    "prettier": "^2.8.0",
+    "source-map": "^0.7.4",
+    "typescript": "https://cdn.jsdelivr.net/npm/@tsplus/installer@0.0.159/compiler/typescript.tgz",
+    "vscode-test": "^1.5.2"
+  },
+  "dependencies": {
+    "source-map-resolve": "^0.6.0"
+  }
 }
